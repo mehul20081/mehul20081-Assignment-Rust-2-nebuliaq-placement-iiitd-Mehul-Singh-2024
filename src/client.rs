@@ -9,10 +9,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = TcpStream::connect("127.0.0.1:8000").await;
         if let Ok(mut socket) = result {
             println!("Connected to the server");
-            let mut interval = time::interval(Duration::from_secs(1));      //rate at which to send log messages
+            let mut interval = time::interval(Duration::from_millis(100));      //rate at which to send log messages
             let min = 1;
             let max = 1000;
-            for _ in 0..100{                               //number of log messages to send
+            for _ in 0..1000{                               //number of log messages to send
                 interval.tick().await;
                 let log_message = generate_log_message(min,max);
                 if let Err(e)=socket.write_all(log_message.as_bytes()).await{
