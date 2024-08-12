@@ -21,7 +21,6 @@ async fn fwd_msg(mut client_socket: TcpStream, addr : SocketAddr, dest_addr: &st
                     }
                     Ok(n) => {
                         let message = String::from_utf8_lossy(&buffer[..n]).to_string();
-                        // println!("Received from {}: {}", addr, message);
 
                         message_batch.push(message); // Adding the message to the batch
 

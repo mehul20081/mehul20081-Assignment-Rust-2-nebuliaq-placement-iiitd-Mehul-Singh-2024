@@ -2,6 +2,8 @@ use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use tokio::time::{self, Duration};
 use rand::Rng;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -10,17 +12,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(mut socket) = result {
             println!("Connected to the server");
             let mut interval = time::interval(Duration::from_secs(1));      //rate at which to send log messages
-            let min = 1;
-            let max = 1000;
             for _ in 0..1000{                               //number of log messages to send
                 interval.tick().await;
-                let log_message = generate_log_message(min,max);
-                if let Err(e)=socket.write_all(log_message.as_bytes()).await{
+                let log_message = generate_log_message();
+                if let Err(_e)=socket.write_all(log_message.as_bytes()).await{
                     println!("Failed to send message, reconnecting...");
                     time::sleep(Duration::from_secs(2)).await;
                     break; 
                 }
-                if let Err(e)=socket.write_all(b"\n").await{
+                if let Err(_e)=socket.write_all(b"\n").await{
                     println!("Failed to send message, reconnecting...");
                     time::sleep(Duration::from_secs(2)).await;
                     break; 
@@ -38,7 +38,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 
-fn generate_log_message(min: u32, max: u32) -> String {          //function to crates random log messages
+fn generate_log_message() -> String {          //function to crates random log messages
+    let logs=[
+        "Info: Application started successfully.",
+        "Debug: Debugging application.",
+        "Warning: Disk space is low.",
+        "Error: Failed to connect to the database.",
+        "Critical: Application crashed unexpectedly.",
+    ];
     let mut random_num = rand::thread_rng();
-    format!("Log message {}", random_num.gen_range(min..=max))
+    match logs.choose(&mut random_num){
+        Some(x)=>{return x.to_string();}
+        None=>{return "Error2: Failed to choose a log.".to_string();}
+    };
 }
