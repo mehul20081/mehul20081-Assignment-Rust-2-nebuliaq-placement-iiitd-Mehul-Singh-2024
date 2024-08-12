@@ -3,33 +3,47 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
+use tokio::time::{self, Duration};
 
 async fn fwd_msg(mut client_socket: TcpStream, addr : SocketAddr, dest_addr: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut dest_socket = TcpStream::connect(dest_addr).await?;
     let mut buffer = [0; 1024];
     let mut message_batch = Vec::with_capacity(100);
+    let mut interval = time::interval(Duration::from_secs(10));
 
     loop {
-        match client_socket.read(&mut buffer).await {
-            Ok(n) if n == 0 => {
-                println!("Client disconnected: {:?}", addr);
-                break;
-            }
-            Ok(n) => {
-                let message = String::from_utf8_lossy(&buffer[..n]).to_string();
-                //println!("Received from {}: {}", addr, message);
+        tokio::select! {
+            result = client_socket.read(&mut buffer) => {
+                match result {
+                    Ok(n) if n == 0 => {
+                        println!("Client disconnected: {:?}", addr);
+                        break;
+                    }
+                    Ok(n) => {
+                        let message = String::from_utf8_lossy(&buffer[..n]).to_string();
+                        // println!("Received from {}: {}", addr, message);
 
-                message_batch.push(message); //adding the msg to the batch
+                        message_batch.push(message); // Adding the message to the batch
 
-                if message_batch.len() >= 100 {
-                    let batched_messages = message_batch.join("\n");
-                    dest_socket.write_all(batched_messages.as_bytes()).await?;
-                    message_batch.clear(); // Clear the batch after sending
+                        if message_batch.len() >= 100 {
+                            let batched_messages = message_batch.join("\n");
+                            dest_socket.write_all(batched_messages.as_bytes()).await?;
+                            message_batch.clear(); // Clear the batch after sending
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to read from socket; err = {:?}", e);
+                        break;
+                    }
                 }
             }
-            Err(e) => {
-                eprintln!("Failed to read from socket; err = {:?}", e);
-                break;
+            
+            _ = interval.tick() => {     // this runs when 10s is up and buffer length <100
+                if !message_batch.is_empty() {
+                    let batched_messages = message_batch.join("\n");
+                    dest_socket.write_all(batched_messages.as_bytes()).await?;
+                    message_batch.clear();
+                }
             }
         }
     }
