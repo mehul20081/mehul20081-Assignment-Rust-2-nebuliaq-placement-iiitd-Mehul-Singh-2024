@@ -8,7 +8,6 @@ use tokio::time::{self, Duration};
 
 use elasticsearch::{Elasticsearch, BulkParts};
 use serde_json::json;
-//use std::collections::VecDeque;
 use std::error::Error;
 
 async fn index_logs_bulk(elastic_client: &Elasticsearch, bulk_messages: Vec<String>) -> Result<(), Box<dyn Error>> {
@@ -18,15 +17,21 @@ async fn index_logs_bulk(elastic_client: &Elasticsearch, bulk_messages: Vec<Stri
             "index": { "_index": "logs" }
         }).to_string()+"\n" + &i) 
     }
-    
-    let response = elastic_client
+
+    let mut retries = 3;
+    for i in 0..retries{
+        let response = elastic_client
         .bulk(BulkParts::Index("logs"))
-        .body(body)
+        .body(body.clone())
         .send()
         .await?;
-
-    if !response.status_code().is_success() {
-        println!("Failed to index logs: {:?}", response.text().await?);
+        if !response.status_code().is_success() {
+            println!("Failed to index logs: {:?}", response.text().await?);
+        }
+        else{
+            println!("SUCCESS!!!");
+            return Ok(());
+        }
     }
     Ok(())
 }
